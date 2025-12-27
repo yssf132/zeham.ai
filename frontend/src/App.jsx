@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import StadiumMap from './components/StadiumMap';
-import { PlayCircle, RefreshCw } from 'lucide-react';
+import { PlayCircle, RefreshCw, Play, Square } from 'lucide-react';
 
 function App() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -9,6 +9,8 @@ function App() {
   const [resetKey, setResetKey] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [gatewayImages, setGatewayImages] = useState({});
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [animationInterval, setAnimationInterval] = useState(null);
 
   // Default positions
   const defaultGatewayPositions = [
@@ -158,6 +160,72 @@ function App() {
     setGatewayImages(images);
   };
 
+  // Shuffle array helper function
+  const shuffleArray = (array) => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
+  // Shuffle images among gateways
+  const shuffleGatewayImages = () => {
+    const imageValues = Object.values(gatewayImages);
+    if (imageValues.length === 0) return;
+    
+    const shuffledImages = shuffleArray(imageValues);
+    const newImages = {};
+    for (let i = 1; i <= 6; i++) {
+      newImages[i] = shuffledImages[i - 1];
+    }
+    setGatewayImages(newImages);
+  };
+
+  // Start animation
+  const startAnimation = async () => {
+    // Make sure we have images loaded
+    if (Object.keys(gatewayImages).length === 0) {
+      loadPresetImages();
+      // Wait a bit for images to load
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    setIsAnimating(true);
+    
+    // Run first iteration immediately
+    await handleAnalyze();
+    
+    // Set up interval for subsequent iterations (every 4 seconds)
+    const interval = setInterval(async () => {
+      shuffleGatewayImages();
+      // Wait a bit for images to update
+      await new Promise(resolve => setTimeout(resolve, 300));
+      await handleAnalyze();
+    }, 4000);
+    
+    setAnimationInterval(interval);
+  };
+
+  // Stop animation
+  const stopAnimation = () => {
+    if (animationInterval) {
+      clearInterval(animationInterval);
+      setAnimationInterval(null);
+    }
+    setIsAnimating(false);
+  };
+
+  // Cleanup on unmount
+  React.useEffect(() => {
+    return () => {
+      if (animationInterval) {
+        clearInterval(animationInterval);
+      }
+    };
+  }, [animationInterval]);
+
   const handleFullscreenChange = (fullscreen) => {
     setIsFullscreen(fullscreen);
   };
@@ -206,7 +274,7 @@ function App() {
             <div className="flex items-center gap-4">
               <button
                 onClick={handleAnalyze}
-                disabled={isAnalyzing}
+                disabled={isAnalyzing || isAnimating}
                 className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isAnalyzing ? (
@@ -223,13 +291,32 @@ function App() {
               </button>
               <button
                 onClick={loadPresetImages}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors"
+                disabled={isAnimating}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 📷 Load Test Images
               </button>
+              {!isAnimating ? (
+                <button
+                  onClick={startAnimation}
+                  disabled={isAnalyzing}
+                  className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Play size={20} />
+                  Start Animation
+                </button>
+              ) : (
+                <button
+                  onClick={stopAnimation}
+                  className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors animate-pulse"
+                >
+                  <Square size={20} />
+                  Stop Animation
+                </button>
+              )}
               <button
                 onClick={handleReset}
-                disabled={isAnalyzing}
+                disabled={isAnalyzing || isAnimating}
                 className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <RefreshCw size={20} />
