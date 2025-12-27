@@ -87,50 +87,61 @@ function App() {
     localStorage.setItem('corridorPositionsFullscreen', JSON.stringify(corridorPositionsFullscreen));
   }, [corridorPositionsFullscreen]);
 
-  // API call to backend
-  const fetchLiveData = async () => {
-    try {
-      const response = await fetch('http://localhost:8000/live-data');
-      if (!response.ok) {
-        throw new Error('Failed to fetch live data');
-      }
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Error fetching live data:', error);
-      throw error;
-    }
-  };
-
   const handleAnalyze = async () => {
     setIsAnalyzing(true);
     
     try {
-      const response = await fetchLiveData();
+      const response = await fetch('http://localhost:8000/live-data');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch data');
+      }
+      
+      const data = await response.json();
+      
+      console.log('\n📊 ========== BACKEND API RESPONSE ==========');
+      console.log('🔢 People Counts by Gate:');
+      data.screens.slice(0, 6).forEach(screen => {
+        console.log(`   Gate ${screen.assigned_gate}: ${screen.people_count} people → Recommend: Gate ${screen.recommended_gate} (Direction: ${screen.direction === 0 ? '⬆️ UP' : screen.direction === -1 ? '⬅️ LEFT' : '➡️ RIGHT'})`);
+      });
+      console.log('\n📈 Metadata:', data.metadata);
+      console.log('🎯 Full Response:', data);
+      console.log('=========================================\n');
       
       // Transform API response to match our component structure
       const gatewayMap = {};
-      response.screens.forEach(screen => {
+      const newGatewayImages = {};
+      
+      data.screens.forEach(screen => {
         if (!gatewayMap[screen.assigned_gate]) {
           gatewayMap[screen.assigned_gate] = {
             id: screen.assigned_gate,
             count: screen.people_count,
-            status: calculateDirection(screen.assigned_gate, screen.recommended_gate),
+            status: screen.direction, // Use direction from backend response
+            recommendedGate: screen.recommended_gate, // Add recommended gate
           };
+          // Extract image URL from response
+          newGatewayImages[screen.assigned_gate] = screen.image_url;
         }
       });
       
       const gateways = Object.values(gatewayMap);
-      const corridors = response.screens.map(screen => ({
+      const corridors = data.screens.map(screen => ({
         id: screen.screen_id,
         target_gateway_id: screen.recommended_gate,
         assigned_gate: screen.assigned_gate,
-        direction: calculateDirection(screen.assigned_gate, screen.recommended_gate),
+        direction: screen.direction, // Use direction from backend response
         people_count: screen.people_count,
       }));
       
+      console.log('✨ Frontend State Update:');
+      console.log('   Gateways:', gateways);
+      console.log('   Corridors:', corridors.map(c => ({ id: c.id, target: c.target_gateway_id, dir: c.direction })));
+      console.log('   Gateway Images:', newGatewayImages);
+      
       setGatewayData(gateways);
       setCorridorData(corridors);
+      setGatewayImages(newGatewayImages);
     } catch (error) {
       console.error('Error analyzing flow:', error);
       alert('Failed to connect to backend. Make sure the backend is running on http://localhost:8000');
@@ -160,50 +171,24 @@ function App() {
     setGatewayImages(images);
   };
 
-  // Shuffle array helper function
-  const shuffleArray = (array) => {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  };
-
-  // Shuffle images among gateways
-  const shuffleGatewayImages = () => {
-    const imageValues = Object.values(gatewayImages);
-    if (imageValues.length === 0) return;
-    
-    const shuffledImages = shuffleArray(imageValues);
-    const newImages = {};
-    for (let i = 1; i <= 6; i++) {
-      newImages[i] = shuffledImages[i - 1];
-    }
-    setGatewayImages(newImages);
-  };
-
-  // Start animation
+  // Start animation - Simple polling loop that calls API every 3 seconds
   const startAnimation = async () => {
-    // Make sure we have images loaded
-    if (Object.keys(gatewayImages).length === 0) {
-      loadPresetImages();
-      // Wait a bit for images to load
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-
     setIsAnimating(true);
+    
+    console.log('🎬 ========== ANIMATION STARTED ==========');
     
     // Run first iteration immediately
     await handleAnalyze();
     
-    // Set up interval for subsequent iterations (every 4 seconds)
+    let iteration = 1;
+    // Set up interval for subsequent iterations (every 3 seconds)
     const interval = setInterval(async () => {
-      shuffleGatewayImages();
-      // Wait a bit for images to update
-      await new Promise(resolve => setTimeout(resolve, 300));
+      iteration++;
+      console.log(`\n🔄 ========== ITERATION ${iteration} ==========`);
+      console.log('📡 Calling backend API...');
       await handleAnalyze();
-    }, 4000);
+      console.log(`✅ Iteration ${iteration} complete\n`);
+    }, 3000);
     
     setAnimationInterval(interval);
   };
@@ -255,26 +240,35 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-white">
       {/* Header */}
       {!isFullscreen && (
-        <header className="bg-white text-gray-800 p-6 shadow-md">
-          <div className="px-4 flex items-center gap-6">
-            {/* Logo */}
-            <img 
-              src="/logo.png" 
-              alt="Sentinel Hub Logo" 
-              className="h-16 w-16 object-contain"
-            />
+        <header className="relative bg-white/95 backdrop-blur-sm text-gray-800 p-4 shadow-lg border-b-4 border-red-600 overflow-hidden">
+          {/* Background Image */}
+          <div 
+            className="absolute inset-0 bg-cover bg-top"
+            style={{ backgroundImage: 'url(/background.png)' }}
+          />
+          
+          <div className="max-w-5xl mx-auto px-4 relative z-10">
+            <div className="flex items-center justify-center gap-3 mb-2">
+              {/* Logo */}
+              <img 
+                src="/logo.png" 
+                alt="Sentinel Hub Logo" 
+                className="h-16 w-16 object-contain"
+              />
+              {/* Title */}
+              <h1 className="text-3xl font-bold text-gray-900">Sentinel Hub</h1>
+            </div>
             
-            {/* Text Content */}
-            <div className="flex-1">
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">Sentinel Hub</h1>
-              <p className="text-base text-gray-700 mb-1">
+            {/* Subtitle Text */}
+            <div className="text-center">
+              <p className="text-sm text-gray-700 mb-0.5">
                 Fluidifier les flux, améliorer le confort : bienvenue dans le Smart Stadium.
               </p>
-              <p className="text-base text-gray-700">
-                كلشي تحت السيطرة، والفانز كيمشيو بلا مشاكل.
+              <p className="text-sm text-gray-700">
+                كلشي تحت السيطرة، والفانز كيمشيو بلا مشاكل  
               </p>
             </div>
           </div>
@@ -285,12 +279,12 @@ function App() {
       <div>
         {/* Control Panel */}
         {!isFullscreen && (
-          <div className="bg-white shadow-md p-4 px-4 flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="bg-white shadow-md p-4 px-4">
+            <div className="max-w-5xl mx-auto flex items-center justify-center gap-4 flex-wrap">
               <button
                 onClick={handleAnalyze}
                 disabled={isAnalyzing || isAnimating}
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isAnalyzing ? (
                   <>
@@ -307,7 +301,7 @@ function App() {
               <button
                 onClick={loadPresetImages}
                 disabled={isAnimating}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 bg-white hover:bg-gray-100 text-red-700 font-semibold px-6 py-3 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed border-2 border-red-600"
               >
                 📷 Load Test Images
               </button>
@@ -315,7 +309,7 @@ function App() {
                 <button
                   onClick={startAnimation}
                   disabled={isAnalyzing}
-                  className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 bg-red-700 hover:bg-red-800 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Play size={20} />
                   Start Animation
@@ -323,7 +317,7 @@ function App() {
               ) : (
                 <button
                   onClick={stopAnimation}
-                  className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors animate-pulse"
+                  className="flex items-center gap-2 bg-red-800 hover:bg-red-900 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors animate-pulse"
                 >
                   <Square size={20} />
                   Stop Animation
@@ -332,7 +326,7 @@ function App() {
               <button
                 onClick={handleReset}
                 disabled={isAnalyzing || isAnimating}
-                className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-6 py-3 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <RefreshCw size={20} />
                 Reset

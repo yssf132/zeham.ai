@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Upload, ArrowLeft, ArrowRight, ArrowUp } from 'lucide-react';
 
-const Gateway = ({ id, position, count, status, onPositionChange, externalImage, onImageChange, isFullscreen }) => {
+const Gateway = ({ id, position, count, status, recommendedGate, onPositionChange, externalImage, onImageChange, isFullscreen }) => {
   const [imagePreview, setImagePreview] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -86,10 +86,12 @@ const Gateway = ({ id, position, count, status, onPositionChange, externalImage,
         pointerEvents: isDragging ? 'none' : 'auto',
       }}
     >
-      {/* Result Box - Gray rectangle with Gateway ID and Direction (After Analysis) */}
+      {/* Result Box - Red/White rectangle with Gateway ID and Direction (After Analysis) */}
       {hasData && (
-        <div className="flex items-center justify-between gap-3 bg-gray-600 px-4 py-2 rounded-lg shadow-lg">
-          <span className="text-red-500 font-bold text-lg">G{id}</span>
+        <div className="flex items-center justify-between gap-3 bg-red-600/80 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg">
+          <span className="text-white font-bold text-lg">
+            {recommendedGate === id ? `G${id}` : `G${id} → G${recommendedGate}`}
+          </span>
           <div className="text-white">
             {status === 0 ? (
               <ArrowUp size={24} />
@@ -123,8 +125,8 @@ const Gateway = ({ id, position, count, status, onPositionChange, externalImage,
               </div>
             )}
             
-            {/* Green badge - Always visible */}
-            <div className="absolute -top-2 -right-2 bg-green-600 text-white w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center shadow-lg">
+            {/* Red badge - Always visible */}
+            <div className="absolute -top-2 -right-2 bg-red-600/90 backdrop-blur-sm text-white w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center shadow-lg">
               G{id}
             </div>
             
@@ -144,12 +146,12 @@ const Gateway = ({ id, position, count, status, onPositionChange, externalImage,
         ) : (
           // Image exists but hidden in normal mode before analysis - show badge only
           <div className="relative w-24 h-24">
-            <div className="absolute -top-2 -right-2 bg-green-600 text-white w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center shadow-lg z-10">
+            <div className="absolute -top-2 -right-2 bg-red-600/90 backdrop-blur-sm text-white w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center shadow-lg z-10">
               G{id}
             </div>
             {isHovered && (
-              <label className="flex flex-col items-center justify-center cursor-pointer w-full h-full bg-white/90 backdrop-blur-sm rounded-lg border-2 border-dashed border-green-600 shadow-lg transition-all">
-                <Upload size={20} className="text-green-600 mb-1" />
+              <label className="flex flex-col items-center justify-center cursor-pointer w-full h-full bg-white/90 backdrop-blur-sm rounded-lg border-2 border-dashed border-red-600 shadow-lg transition-all">
+                <Upload size={20} className="text-red-600 mb-1" />
                 <span className="text-[10px] text-gray-600 font-medium">Upload</span>
                 <input
                   type="file"
@@ -164,14 +166,14 @@ const Gateway = ({ id, position, count, status, onPositionChange, externalImage,
       ) : (
         // Upload prompt - Smaller
         <div className="relative w-24 h-24">
-          {/* Green badge when no image */}
-          <div className="absolute -top-2 -right-2 bg-green-600 text-white w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center shadow-lg z-10">
+          {/* Red badge when no image */}
+          <div className="absolute -top-2 -right-2 bg-red-600/90 backdrop-blur-sm text-white w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center shadow-lg z-10">
             G{id}
           </div>
           
           {isHovered && (
-            <label className="flex flex-col items-center justify-center cursor-pointer w-full h-full bg-white/90 backdrop-blur-sm rounded-lg border-2 border-dashed border-green-600 shadow-lg transition-all">
-              <Upload size={20} className="text-green-600 mb-1" />
+            <label className="flex flex-col items-center justify-center cursor-pointer w-full h-full bg-white/90 backdrop-blur-sm rounded-lg border-2 border-dashed border-red-600 shadow-lg transition-all">
+              <Upload size={20} className="text-red-600 mb-1" />
               <span className="text-[10px] text-gray-600 font-medium">Upload</span>
               <input
                 type="file"

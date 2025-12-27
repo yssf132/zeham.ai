@@ -170,9 +170,8 @@ async def get_live_data():
             screens_output.append(upper_screen)
             
     process_time = time.time() - start_time
-    logger.info(f"Processed request in {process_time:.3f}s")
-
-    return {
+    
+    response_data = {
         "screens": screens_output,
         "metadata": {
             "total_people": sum(current_counts),
@@ -181,6 +180,24 @@ async def get_live_data():
             "latency_ms": int(process_time * 1000)
         }
     }
+    
+    # Detailed console logging
+    logger.info(f"\n{'='*60}")
+    logger.info(f"📡 API RESPONSE - /live-data")
+    logger.info(f"{'='*60}")
+    logger.info(f"⏱️  Processing Time: {process_time:.3f}s")
+    logger.info(f"\n📊 Gate Analysis:")
+    for i in range(NUM_GATES):
+        gate_id = i + 1
+        logger.info(f"   Gate {gate_id}: {current_counts[i]} people | Image: {current_images[i]} | Recommend: Gate {screens_output[i*3]['recommended_gate']} | Direction: {screens_output[i*3]['direction']}")
+    
+    logger.info(f"\n📈 Metadata:")
+    logger.info(f"   Total People: {sum(current_counts)}")
+    logger.info(f"   Max Capacity: {MAX_CAPACITY} per gate")
+    logger.info(f"   Latency: {int(process_time * 1000)}ms")
+    logger.info(f"{'='*60}\n")
+
+    return response_data
 
 if __name__ == "__main__":
     import uvicorn

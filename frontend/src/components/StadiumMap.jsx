@@ -45,7 +45,7 @@ const StadiumMap = ({
   return (
     <div 
       ref={mapContainerRef}
-      className="relative w-full bg-white shadow-md" 
+      className="relative w-full bg-white" 
       style={{ height: isFullscreen ? '100vh' : 'calc(100vh - 160px)' }}
     >
       {/* Background Image */}
@@ -81,6 +81,7 @@ const StadiumMap = ({
               position={{ top: pos.top, left: pos.left }}
               count={info.count}
               status={info.status}
+              recommendedGate={info.recommendedGate}
               onPositionChange={updateGatewayPosition}
               externalImage={gatewayImages[pos.id]}
               onImageChange={(image) => onGatewayImageChange(pos.id, image)}

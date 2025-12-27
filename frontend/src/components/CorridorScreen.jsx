@@ -82,7 +82,7 @@ const CorridorScreen = ({ id, position, targetGatewayId, direction, onPositionCh
     >
       {/* Result Box - Gray rectangle with Gateway ID and Direction (After Analysis) */}
       {hasData && (
-        <div className="flex items-center justify-between gap-3 bg-gray-600 px-4 py-2 rounded-lg shadow-lg">
+        <div className="flex items-center justify-between gap-3 bg-blue-600/80 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg">
           <span className="text-red-500 font-bold text-lg">G{targetGatewayId}</span>
           <div className="text-white">
             {getDirectionIcon()}
