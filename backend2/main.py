@@ -1,9 +1,11 @@
 import os
 import logging
 import time
+import random
 from typing import List, Dict, Any
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import cv2
 from ultralytics import YOLO
@@ -21,6 +23,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.mount("/images", StaticFiles(directory="images"), name="images")
+
 MAX_CAPACITY = 50
 NUM_GATES = 6 
 PENALTY_FACTOR = 15 
@@ -30,7 +34,7 @@ MODEL_PATH = "yolov8n-face.pt" # Customized Face Model
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-GATE_CACHE = {}
+IMAGE_CACHE = {}
 
 # ==========================================
 # AI Model Initialization (YOLOv8-Face)
@@ -100,10 +104,20 @@ async def get_live_data():
     start_time = time.time()
     
     current_counts = [0] * NUM_GATES
+    current_images = [""] * NUM_GATES
+    
+    # Change randomness every 2 seconds
+    time_seed = int(time.time() / 2)
+    available_images = [f"gate_{i+1}.jpg" for i in range(NUM_GATES)]
     
     for i in range(NUM_GATES):
         gate_id = i + 1
-        image_filename = f"gate_{gate_id}.jpg"
+        
+        # Select a random image for this gate based on time window
+        rng = random.Random(time_seed + gate_id)
+        image_filename = rng.choice(available_images)
+        current_images[i] = image_filename
+        
         image_path = os.path.join(IMAGE_FOLDER, image_filename)
         
         if not os.path.exists(image_path):
@@ -113,19 +127,21 @@ async def get_live_data():
         try:
             mtime = os.path.getmtime(image_path)
             
-            if gate_id in GATE_CACHE and GATE_CACHE[gate_id]['mtime'] == mtime:
-                current_counts[i] = GATE_CACHE[gate_id]['count']
+            # Use image filename as cache key since we rotate images
+            if image_filename in IMAGE_CACHE and IMAGE_CACHE[image_filename]['mtime'] == mtime:
+                current_counts[i] = IMAGE_CACHE[image_filename]['count']
             else:
                 img = cv2.imread(image_path)
                 count = detect_faces_yolo(img)
                 
-                if gate_id not in GATE_CACHE: GATE_CACHE[gate_id] = {}
-                GATE_CACHE[gate_id]['mtime'] = mtime
-                GATE_CACHE[gate_id]['count'] = count
+                IMAGE_CACHE[image_filename] = {
+                    'mtime': mtime,
+                    'count': count
+                }
                 current_counts[i] = count
                     
         except Exception as e:
-            logger.error(f"Error process gate {gate_id}: {e}")
+            logger.error(f"Error process gate {gate_id} (img: {image_filename}): {e}")
             current_counts[i] = 0
 
     screens_output = []
@@ -138,7 +154,8 @@ async def get_live_data():
             "assigned_gate": gate_id,
             "people_count": current_counts[i],
             "recommended_gate": decision["recommended_gate"],
-            "direction": decision["direction"]
+            "direction": decision["direction"],
+            "image_url": f"http://localhost:8000/images/{current_images[i]}"
         }
         
         lower_screen = base_data.copy()

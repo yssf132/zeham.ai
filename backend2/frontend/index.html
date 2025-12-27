@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stadium Crowd Control - Internal Debug</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card.crowded {
+            border: 2px solid #ef4444;
+        }
+
+        .card.free {
+            border: 2px solid #22c55e;
+        }
+
+        .card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+
+        .info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .gate-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .count {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2563eb;
+        }
+
+        .meta {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .recommendation {
+            margin-top: 15px;
+            padding: 10px;
+            background: #eefff0;
+            border-radius: 5px;
+            border-left: 4px solid #22c55e;
+        }
+
+        .recommendation.redirect {
+            background: #fff0f0;
+            border-left: 4px solid #ef4444;
+        }
+
+        .badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        .loading {
+            text-align: center;
+            margin-top: 50px;
+            font-size: 1.2rem;
+            color: #666;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏟️ Live Stadium Gate Monitor</h1>
+            <p>Updates every 1s. Image logic rotates every 2s.</p>
+        </div>
+        <div id="grid" class="grid"></div>
+        <div id="loading" class="loading">Connecting to Crowd Control Backend...</div>
+    </div>
+
+    <script>
+        // Only process lower screens to get 1 card per gate (since backend duplicates data for screens)
+        async function fetchData() {
+            try {
+                const response = await fetch('http://localhost:8000/live-data');
+                const data = await response.json();
+                render(data.screens);
+                document.getElementById('loading').style.display = 'none';
+            } catch (e) {
+                console.error(e);
+                document.getElementById('loading').textContent = "Error connecting to backend (Is it running?)";
+                document.getElementById('loading').style.color = "red";
+            }
+        }
+
+        function render(screens) {
+            const grid = document.getElementById('grid');
+
+            // Filter unique gates (Backend returns 1 Lower + 2 Upper screens per gate, we just want to visualize the Gate logic)
+            const uniqueGates = screens.filter(s => s.type === 'Lower');
+
+            grid.innerHTML = uniqueGates.map(gate => {
+                const isCrowded = gate.people_count > 50; // Using backend constant, assuming 50 here
+                const redirect = gate.direction !== 0;
+
+                let directionText = "✅ Enter Here";
+                if (gate.direction === 1) directionText = `➡️ Go Right (Gate ${gate.recommended_gate})`;
+                if (gate.direction === -1) directionText = `⬅️ Go Left (Gate ${gate.recommended_gate})`;
+
+                return `
+                    <div class="card ${isCrowded ? 'crowded' : 'free'}">
+                        <span class="badge">Gate ${gate.assigned_gate}</span>
+                        <img src="${gate.image_url}" alt="Gate View">
+                        <div class="info">
+                            <div class="gate-title">Gate ${gate.assigned_gate}</div>
+                            <div class="count">👥 ${gate.people_count}</div>
+                        </div>
+                        <div class="meta">
+                             Processing: ${gate.people_count > 50 ? 'OPEN' : 'OPEN'}
+                        </div>
+                        <div class="recommendation ${redirect ? 'redirect' : ''}">
+                            ${directionText}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Poll every 1 second to see the 2-second updates smoothly
+        setInterval(fetchData, 1000);
+        fetchData();
+    </script>
+</body>
+
+</html>
