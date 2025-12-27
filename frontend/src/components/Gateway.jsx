@@ -6,11 +6,13 @@ const Gateway = ({ id, position, count, status, onPositionChange, externalImage,
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isHovered, setIsHovered] = useState(false);
+  const [isUserUploaded, setIsUserUploaded] = useState(false);
 
   // Update imagePreview when externalImage changes
   React.useEffect(() => {
     if (externalImage) {
       setImagePreview(externalImage);
+      setIsUserUploaded(true); // Treat preset images same as user uploaded - show immediately
     }
   }, [externalImage]);
 
@@ -20,6 +22,7 @@ const Gateway = ({ id, position, count, status, onPositionChange, externalImage,
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result);
+        setIsUserUploaded(true); // Mark as user uploaded
         onImageChange?.(reader.result);
       };
       reader.readAsDataURL(file);
@@ -63,6 +66,13 @@ const Gateway = ({ id, position, count, status, onPositionChange, externalImage,
 
   const hasData = count !== null && count !== undefined;
 
+  // Reset isUserUploaded when analysis completes (hasData becomes true)
+  React.useEffect(() => {
+    if (hasData && isUserUploaded) {
+      setIsUserUploaded(false);
+    }
+  }, [hasData]);
+
   return (
     <div
       className="absolute flex flex-col items-center gap-2 cursor-move"
@@ -95,39 +105,62 @@ const Gateway = ({ id, position, count, status, onPositionChange, externalImage,
       )}
 
       {/* Image Preview - Smaller */}
-      {imagePreview && (isFullscreen || isHovered) ? (
-        <div className="relative w-24 h-24 group">
-          <img
-            src={imagePreview}
-            alt={`Gateway ${id} crowd`}
-            className="w-full h-full object-cover rounded-lg shadow-lg"
-          />
-          
-          {/* People Count on image - After API call */}
-          {hasData && (
-            <div className="absolute top-1 left-1 bg-black/70 text-white px-2 py-0.5 rounded text-xs font-bold">
-              {count}
+      {imagePreview ? (
+        // If we have an image, check visibility rules
+        isFullscreen || isUserUploaded || (isHovered && hasData) ? (
+          // Show the image
+          <div className="relative w-24 h-24 group">
+            <img
+              src={imagePreview}
+              alt={`Gateway ${id} crowd`}
+              className="w-full h-full object-cover rounded-lg shadow-lg"
+            />
+            
+            {/* People Count on image - After API call */}
+            {hasData && (
+              <div className="absolute top-1 left-1 bg-black/70 text-white px-2 py-0.5 rounded text-xs font-bold">
+                {count}
+              </div>
+            )}
+            
+            {/* Green badge - Always visible */}
+            <div className="absolute -top-2 -right-2 bg-green-600 text-white w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center shadow-lg">
+              G{id}
             </div>
-          )}
-          
-          {/* Green badge - Always visible */}
-          <div className="absolute -top-2 -right-2 bg-green-600 text-white w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center shadow-lg">
-            G{id}
+            
+            {/* Upload button on hover */}
+            {isHovered && (
+              <label className="absolute inset-0 flex items-center justify-center bg-black/50 hover:bg-black/60 rounded-lg cursor-pointer transition-all">
+                <Upload size={20} className="text-white" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </label>
+            )}
           </div>
-          
-          {/* Upload button on hover */}
-          {isHovered && (
-            <label className="absolute inset-0 flex items-center justify-center bg-black/50 hover:bg-black/60 rounded-lg cursor-pointer transition-all">
-              <Upload size={20} className="text-white" />
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-            </label>
-          )}
-        </div>
+        ) : (
+          // Image exists but hidden in normal mode before analysis - show badge only
+          <div className="relative w-24 h-24">
+            <div className="absolute -top-2 -right-2 bg-green-600 text-white w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center shadow-lg z-10">
+              G{id}
+            </div>
+            {isHovered && (
+              <label className="flex flex-col items-center justify-center cursor-pointer w-full h-full bg-white/90 backdrop-blur-sm rounded-lg border-2 border-dashed border-green-600 shadow-lg transition-all">
+                <Upload size={20} className="text-green-600 mb-1" />
+                <span className="text-[10px] text-gray-600 font-medium">Upload</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
+        )
       ) : (
         // Upload prompt - Smaller
         <div className="relative w-24 h-24">

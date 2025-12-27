@@ -258,10 +258,25 @@ function App() {
     <div className="min-h-screen bg-gray-100">
       {/* Header */}
       {!isFullscreen && (
-        <header className="bg-white text-gray-800 p-4 shadow-md">
-          <div className="px-4">
-            <h1 className="text-3xl font-bold">🇲🇦 Moroccan Cup Crowd Management</h1>
-            <p className="text-sm mt-1 text-gray-600">Real-time crowd flow optimization system</p>
+        <header className="bg-white text-gray-800 p-6 shadow-md">
+          <div className="px-4 flex items-center gap-6">
+            {/* Logo */}
+            <img 
+              src="/logo.png" 
+              alt="Sentinel Hub Logo" 
+              className="h-16 w-16 object-contain"
+            />
+            
+            {/* Text Content */}
+            <div className="flex-1">
+              <h1 className="text-4xl font-bold text-gray-900 mb-2">Sentinel Hub</h1>
+              <p className="text-base text-gray-700 mb-1">
+                Fluidifier les flux, améliorer le confort : bienvenue dans le Smart Stadium.
+              </p>
+              <p className="text-base text-gray-700">
+                كلشي تحت السيطرة، والفانز كيمشيو بلا مشاكل.
+              </p>
+            </div>
           </div>
         </header>
       )}
