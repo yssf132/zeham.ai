@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import Gateway from './components/Gateway';
-import CorridorScreen from './components/CorridorScreen';
+import StadiumMap from './components/StadiumMap';
 import { PlayCircle, RefreshCw } from 'lucide-react';
 
 function App() {
@@ -8,191 +7,252 @@ function App() {
   const [gatewayData, setGatewayData] = useState([]);
   const [corridorData, setCorridorData] = useState([]);
   const [resetKey, setResetKey] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [gatewayImages, setGatewayImages] = useState({});
 
-  // Initial positions for 6 Gateways (spread around the map)
-  const [gatewayPositions, setGatewayPositions] = useState([
+  // Default positions
+  const defaultGatewayPositions = [
     { id: 1, top: '10%', left: '20%' },
     { id: 2, top: '10%', left: '75%' },
     { id: 3, top: '45%', left: '5%' },
     { id: 4, top: '45%', left: '90%' },
     { id: 5, top: '80%', left: '20%' },
     { id: 6, top: '80%', left: '75%' },
-  ]);
+  ];
 
-  // Initial positions for 12 Corridor Screens (spread around the map)
-  const [corridorPositions, setCorridorPositions] = useState([
-    { id: 1, top: '15%', left: '35%' },
-    { id: 2, top: '15%', left: '60%' },
-    { id: 3, top: '30%', left: '15%' },
-    { id: 4, top: '30%', left: '80%' },
-    { id: 5, top: '45%', left: '35%' },
-    { id: 6, top: '45%', left: '60%' },
-    { id: 7, top: '60%', left: '15%' },
-    { id: 8, top: '60%', left: '80%' },
-    { id: 9, top: '75%', left: '35%' },
-    { id: 10, top: '75%', left: '60%' },
-    { id: 11, top: '90%', left: '45%' },
-    { id: 12, top: '5%', left: '45%' },
-  ]);
+  const defaultCorridorPositions = [
+    // Gate 1 screens
+    { id: 'Lower_Gate_1', top: '15%', left: '25%', assignedGate: 1 },
+    { id: 'Upper_Gate_1_1', top: '10%', left: '20%', assignedGate: 1 },
+    { id: 'Upper_Gate_1_2', top: '10%', left: '30%', assignedGate: 1 },
+    // Gate 2 screens
+    { id: 'Lower_Gate_2', top: '15%', left: '70%', assignedGate: 2 },
+    { id: 'Upper_Gate_2_1', top: '10%', left: '65%', assignedGate: 2 },
+    { id: 'Upper_Gate_2_2', top: '10%', left: '75%', assignedGate: 2 },
+    // Gate 3 screens
+    { id: 'Lower_Gate_3', top: '45%', left: '10%', assignedGate: 3 },
+    { id: 'Upper_Gate_3_1', top: '40%', left: '5%', assignedGate: 3 },
+    { id: 'Upper_Gate_3_2', top: '50%', left: '5%', assignedGate: 3 },
+    // Gate 4 screens
+    { id: 'Lower_Gate_4', top: '45%', left: '85%', assignedGate: 4 },
+    { id: 'Upper_Gate_4_1', top: '40%', left: '90%', assignedGate: 4 },
+    { id: 'Upper_Gate_4_2', top: '50%', left: '90%', assignedGate: 4 },
+    // Gate 5 screens
+    { id: 'Lower_Gate_5', top: '75%', left: '25%', assignedGate: 5 },
+    { id: 'Upper_Gate_5_1', top: '80%', left: '20%', assignedGate: 5 },
+    { id: 'Upper_Gate_5_2', top: '80%', left: '30%', assignedGate: 5 },
+    // Gate 6 screens
+    { id: 'Lower_Gate_6', top: '75%', left: '70%', assignedGate: 6 },
+    { id: 'Upper_Gate_6_1', top: '80%', left: '65%', assignedGate: 6 },
+    { id: 'Upper_Gate_6_2', top: '80%', left: '75%', assignedGate: 6 },
+  ];
 
-  // Mock Backend Logic - Simulates API response
-  const mockOptimizeFlow = () => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const mockResponse = {
-          gateways: [
-            { id: 1, count: 45, status: 'optimal' },
-            { id: 2, count: 120, status: 'crowded' },
-            { id: 3, count: 15, status: 'optimal' },
-            { id: 4, count: 85, status: 'optimal' },
-            { id: 5, count: 150, status: 'crowded' },
-            { id: 6, count: 30, status: 'optimal' },
-          ],
-          corridors: [
-            { id: 1, target_gateway_id: 3, direction: 'left' },
-            { id: 2, target_gateway_id: 1, direction: 'left' },
-            { id: 3, target_gateway_id: 3, direction: 'right' },
-            { id: 4, target_gateway_id: 4, direction: 'left' },
-            { id: 5, target_gateway_id: 1, direction: 'left' },
-            { id: 6, target_gateway_id: 6, direction: 'right' },
-            { id: 7, target_gateway_id: 3, direction: 'right' },
-            { id: 8, target_gateway_id: 6, direction: 'left' },
-            { id: 9, target_gateway_id: 3, direction: 'straight' },
-            { id: 10, target_gateway_id: 6, direction: 'straight' },
-            { id: 11, target_gateway_id: 3, direction: 'left' },
-            { id: 12, target_gateway_id: 1, direction: 'straight' },
-          ],
-        };
-        resolve(mockResponse);
-      }, 2000); // Simulate 2 second API delay
-    });
+  // Load positions from localStorage or use defaults
+  const [gatewayPositions, setGatewayPositions] = useState(() => {
+    const saved = localStorage.getItem('gatewayPositions');
+    return saved ? JSON.parse(saved) : defaultGatewayPositions;
+  });
+
+  const [gatewayPositionsFullscreen, setGatewayPositionsFullscreen] = useState(() => {
+    const saved = localStorage.getItem('gatewayPositionsFullscreen');
+    return saved ? JSON.parse(saved) : defaultGatewayPositions;
+  });
+
+  const [corridorPositions, setCorridorPositions] = useState(() => {
+    const saved = localStorage.getItem('corridorPositions');
+    return saved ? JSON.parse(saved) : defaultCorridorPositions;
+  });
+
+  const [corridorPositionsFullscreen, setCorridorPositionsFullscreen] = useState(() => {
+    const saved = localStorage.getItem('corridorPositionsFullscreen');
+    return saved ? JSON.parse(saved) : defaultCorridorPositions;
+  });
+
+  // Save positions to localStorage whenever they change
+  React.useEffect(() => {
+    localStorage.setItem('gatewayPositions', JSON.stringify(gatewayPositions));
+  }, [gatewayPositions]);
+
+  React.useEffect(() => {
+    localStorage.setItem('gatewayPositionsFullscreen', JSON.stringify(gatewayPositionsFullscreen));
+  }, [gatewayPositionsFullscreen]);
+
+  React.useEffect(() => {
+    localStorage.setItem('corridorPositions', JSON.stringify(corridorPositions));
+  }, [corridorPositions]);
+
+  React.useEffect(() => {
+    localStorage.setItem('corridorPositionsFullscreen', JSON.stringify(corridorPositionsFullscreen));
+  }, [corridorPositionsFullscreen]);
+
+  // API call to backend
+  const fetchLiveData = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/live-data');
+      if (!response.ok) {
+        throw new Error('Failed to fetch live data');
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching live data:', error);
+      throw error;
+    }
   };
 
   const handleAnalyze = async () => {
     setIsAnalyzing(true);
     
     try {
-      const response = await mockOptimizeFlow();
-      setGatewayData(response.gateways);
-      setCorridorData(response.corridors);
+      const response = await fetchLiveData();
+      
+      // Transform API response to match our component structure
+      const gatewayMap = {};
+      response.screens.forEach(screen => {
+        if (!gatewayMap[screen.assigned_gate]) {
+          gatewayMap[screen.assigned_gate] = {
+            id: screen.assigned_gate,
+            count: screen.people_count,
+            status: calculateDirection(screen.assigned_gate, screen.recommended_gate),
+          };
+        }
+      });
+      
+      const gateways = Object.values(gatewayMap);
+      const corridors = response.screens.map(screen => ({
+        id: screen.screen_id,
+        target_gateway_id: screen.recommended_gate,
+        assigned_gate: screen.assigned_gate,
+        direction: calculateDirection(screen.assigned_gate, screen.recommended_gate),
+        people_count: screen.people_count,
+      }));
+      
+      setGatewayData(gateways);
+      setCorridorData(corridors);
     } catch (error) {
       console.error('Error analyzing flow:', error);
+      alert('Failed to connect to backend. Make sure the backend is running on http://localhost:8000');
     } finally {
       setIsAnalyzing(false);
     }
   };
 
+  const calculateDirection = (assignedGate, recommendedGate) => {
+    if (assignedGate === recommendedGate) return 0; // straight/up
+    if (recommendedGate < assignedGate) return -1; // left
+    return 1; // right
+  };
+
   const handleReset = () => {
     setGatewayData([]);
     setCorridorData([]);
+    setGatewayImages({});
     setResetKey(prev => prev + 1);
   };
 
+  const loadPresetImages = () => {
+    const images = {};
+    for (let i = 1; i <= 6; i++) {
+      images[i] = `/gate_${i}.jpg`;
+    }
+    setGatewayImages(images);
+  };
+
+  const handleFullscreenChange = (fullscreen) => {
+    setIsFullscreen(fullscreen);
+  };
+
   const updateGatewayPosition = (id, newPosition) => {
-    setGatewayPositions(prev => 
-      prev.map(g => g.id === id ? { ...g, ...newPosition } : g)
-    );
+    if (isFullscreen) {
+      setGatewayPositionsFullscreen(prev => 
+        prev.map(g => g.id === id ? { ...g, ...newPosition } : g)
+      );
+    } else {
+      setGatewayPositions(prev => 
+        prev.map(g => g.id === id ? { ...g, ...newPosition } : g)
+      );
+    }
   };
 
   const updateCorridorPosition = (id, newPosition) => {
-    setCorridorPositions(prev => 
-      prev.map(c => c.id === id ? { ...c, ...newPosition } : c)
-    );
-  };
-
-  const getGatewayInfo = (gatewayId) => {
-    return gatewayData.find((g) => g.id === gatewayId) || {};
-  };
-
-  const getCorridorInfo = (corridorId) => {
-    return corridorData.find((c) => c.id === corridorId) || {};
+    if (isFullscreen) {
+      setCorridorPositionsFullscreen(prev => 
+        prev.map(c => c.id === id ? { ...c, ...newPosition } : c)
+      );
+    } else {
+      setCorridorPositions(prev => 
+        prev.map(c => c.id === id ? { ...c, ...newPosition } : c)
+      );
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Header */}
-      <header className="bg-gradient-to-r from-green-700 to-green-900 text-white p-4 shadow-lg">
-        <div className="container mx-auto">
-          <h1 className="text-3xl font-bold">🇲🇦 Moroccan Cup Crowd Management</h1>
-          <p className="text-sm mt-1 opacity-90">Real-time crowd flow optimization system</p>
-        </div>
-      </header>
+      {!isFullscreen && (
+        <header className="bg-white text-gray-800 p-4 shadow-md">
+          <div className="px-4">
+            <h1 className="text-3xl font-bold">🇲🇦 Moroccan Cup Crowd Management</h1>
+            <p className="text-sm mt-1 text-gray-600">Real-time crowd flow optimization system</p>
+          </div>
+        </header>
+      )}
 
       {/* Main Content */}
-      <div className="p-4">
+      <div>
         {/* Control Panel */}
-        <div className="mb-4 bg-white rounded-lg shadow-md p-4 flex items-center justify-between max-w-7xl mx-auto">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handleAnalyze}
-              disabled={isAnalyzing}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isAnalyzing ? (
-                <>
-                  <RefreshCw size={20} className="animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <PlayCircle size={20} />
-                  Analyze & Optimize Flow
-                </>
-              )}
-            </button>
-            <button
-              onClick={handleReset}
-              disabled={isAnalyzing}
-              className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <RefreshCw size={20} />
-              Reset
-            </button>
+        {!isFullscreen && (
+          <div className="bg-white shadow-md p-4 px-4 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleAnalyze}
+                disabled={isAnalyzing}
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <RefreshCw size={20} className="animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <PlayCircle size={20} />
+                    Analyze & Optimize Flow
+                  </>
+                )}
+              </button>
+              <button
+                onClick={loadPresetImages}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors"
+              >
+                📷 Load Test Images
+              </button>
+              <button
+                onClick={handleReset}
+                disabled={isAnalyzing}
+                className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw size={20} />
+                Reset
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Stadium Map Container */}
-        <div className="relative bg-white shadow-xl overflow-hidden w-full" style={{ height: 'calc(100vh - 180px)' }}>
-          {/* Background Image - Replace this path with your actual stadium map */}
-          <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{
-              backgroundImage: 'url(/stadium-map.jpg)',
-              backgroundSize: 'contain',
-              backgroundRepeat: 'no-repeat',
-            }}
-          />
-
-          {/* Gateway Components */}
-          {gatewayPositions.map((pos) => {
-            const info = getGatewayInfo(pos.id);
-            return (
-              <Gateway
-                key={`gateway-${pos.id}-${resetKey}`}
-                id={pos.id}
-                position={{ top: pos.top, left: pos.left }}
-                count={info.count}
-                status={info.status}
-                onPositionChange={updateGatewayPosition}
-              />
-            );
-          })}
-
-          {/* Corridor Screen Components */}
-          {corridorPositions.map((pos) => {
-            const info = getCorridorInfo(pos.id);
-            return (
-              <CorridorScreen
-                key={`corridor-${pos.id}`}
-                id={pos.id}
-                position={{ top: pos.top, left: pos.left }}
-                targetGatewayId={info.target_gateway_id}
-                direction={info.direction}
-                onPositionChange={updateCorridorPosition}
-              />
-            );
-          })}
-        </div>
+        {/* Stadium Map Component */}
+        <StadiumMap
+          gatewayPositions={isFullscreen ? gatewayPositionsFullscreen : gatewayPositions}
+          corridorPositions={isFullscreen ? corridorPositionsFullscreen : corridorPositions}
+          gatewayData={gatewayData}
+          corridorData={corridorData}
+          resetKey={resetKey}
+          updateGatewayPosition={updateGatewayPosition}
+          updateCorridorPosition={updateCorridorPosition}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={handleFullscreenChange}
+          gatewayImages={gatewayImages}
+          onGatewayImageChange={(id, image) => setGatewayImages(prev => ({ ...prev, [id]: image }))}
+        />
       </div>
     </div>
   );

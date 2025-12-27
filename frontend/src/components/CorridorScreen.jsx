@@ -4,20 +4,16 @@ import { ArrowLeft, ArrowRight, ArrowUp } from 'lucide-react';
 const CorridorScreen = ({ id, position, targetGatewayId, direction, onPositionChange }) => {
   const [isDragging, setIsDragging] = React.useState(false);
   const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 });
-  const [isHovered, setIsHovered] = React.useState(false);
 
   const getDirectionIcon = () => {
-    switch (direction?.toLowerCase()) {
-      case 'left':
-        return <ArrowLeft size={24} className="text-green-500" />;
-      case 'right':
-        return <ArrowRight size={24} className="text-green-500" />;
-      case 'straight':
-      case 'up':
-        return <ArrowUp size={24} className="text-green-500" />;
-      default:
-        return null;
+    if (direction === 0) {
+      return <ArrowUp size={24} className="text-white" />;
+    } else if (direction === -1) {
+      return <ArrowLeft size={24} className="text-white" />;
+    } else if (direction === 1) {
+      return <ArrowRight size={24} className="text-white" />;
     }
+    return <ArrowUp size={24} className="text-white" />;
   };
 
   const handleMouseDown = (e) => {
@@ -55,42 +51,49 @@ const CorridorScreen = ({ id, position, targetGatewayId, direction, onPositionCh
     }
   }, [isDragging]);
 
+  const hasData = targetGatewayId !== null && targetGatewayId !== undefined;
+
+  // Extract portal number from ID (e.g., "Upper_Gate_1_1" -> "P11")
+  const getPortalNumber = () => {
+    const match = id.match(/Gate_(\d+)/);
+    const gateNum = match ? match[1] : '?';
+    const isUpper = id.includes('Upper');
+    const suffix = id.match(/_(\d)$/);
+    if (isUpper && suffix) {
+      return `P${gateNum}${suffix[1]}`;
+    }
+    // Don't display Lower gates
+    return null;
+  };
+
+  // Don't render if it's a Lower gate
+  if (!id.includes('Upper')) {
+    return null;
+  }
+
   return (
     <div
-      className="absolute cursor-move"
+      className="absolute flex flex-col items-center gap-2 cursor-move"
       onMouseDown={handleMouseDown}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
       style={{
         top: position.top,
         left: position.left,
-        width: '70px',
-        height: '50px',
       }}
     >
-      {/* Screen ID - Always Visible */}
-      <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-green-700 text-white px-2 py-0.5 rounded text-xs font-bold z-20">
-        C{id}
-      </div>
-
-      {/* Full Box - Only on Hover */}
-      {isHovered && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/90 backdrop-blur-sm rounded-lg border-2 border-gray-700 shadow-xl transition-all duration-300">
-          {/* Content */}
-          {targetGatewayId ? (
-            <div className="flex flex-col items-center justify-center">
-              {getDirectionIcon()}
-              <div className="mt-1 text-white text-xs font-bold">
-                G{targetGatewayId}
-              </div>
-            </div>
-          ) : (
-            <div className="text-gray-400 text-xs text-center px-1">
-              Wait
-            </div>
-          )}
+      {/* Result Box - Gray rectangle with Gateway ID and Direction (After Analysis) */}
+      {hasData && (
+        <div className="flex items-center justify-between gap-3 bg-gray-600 px-4 py-2 rounded-lg shadow-lg">
+          <span className="text-red-500 font-bold text-lg">G{targetGatewayId}</span>
+          <div className="text-white">
+            {getDirectionIcon()}
+          </div>
         </div>
       )}
+
+      {/* Portal ID - Always Visible (small blue badge) */}
+      <div className="bg-blue-600 text-white px-2 py-1 rounded text-xs font-bold shadow-md">
+        {getPortalNumber()}
+      </div>
     </div>
   );
 };
